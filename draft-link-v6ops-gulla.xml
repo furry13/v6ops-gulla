@@ -50,7 +50,7 @@
 
     <abstract>
  <t>
-This document suggests that a link-local address used by a router as a source address for Router Advertisement packets is calculated as a function of prefixes listed in the Prefix Information Option of the Router Advertisement. The proposed approach, combined with the Rule 5.5 of the Default Source Address Selection algorithm (RFC6724) improves the robustness of the SLAAC by allowing the hosts to detect the IPv6 subnet changes much faster and select the correct source address.
+This document suggests that a link-local address used by a router as a source address for Router Advertisement packets is calculated as a function of prefixes listed in the Prefix Information Option of the Router Advertisement. The proposed approach, combined with the Rule 5.5 of the Default Source Address Selection algorithm (RFC6724) and first-hop selection requirements for hosts (RFC 8028)  improves the robustness of the SLAAC by allowing the hosts to detect the IPv6 subnet changes much faster and select the correct source address.
 
 </t>
 
@@ -91,7 +91,15 @@ That allows the hosts to select the source address from the prefix advertized by
 Terminology
 </name>
 <t>
-To be added
+PIO: Prefix Information Option, <xref target="RFC4861"/>.
+</t>
+<t>
+RA: Router Advertisement, <xref target="RFC4861"/>.
+</t>
+<t>
+SLAAC: StateLess Address AutoConfiguration, <xref target="RFC4862"/>.
+</t>
+<t>
 </t>
 </section>
 
@@ -99,7 +107,7 @@ To be added
 <name>Subnet Change Scenarios</name>
 <t>
 There are multiple scenarios when an IPv6 subnet assigned to the link can change without any explicit signals received by hosts.
-When it happens, the hosts can end up with outdated IPv6 address configuration, which leads to broken connectivity and negative user experience.
+When it happens, the hosts can end up with outdated IPv6 address configuration, which leads to broken connectivity and degraded user experience.
 Examples include but are not limited to:
 </t>
 <ul>
@@ -216,6 +224,64 @@ Neighbor Unreachability Detection detects that LLA_A is not reachable, and remov
 </ul>
 </section>
 
+<section>
+<name>
+Outage Duration During Renumbering Event
+</name>
+<t>
+When the IPv6 subnet changes (either because the given link has been renumbered, or because the client has moved to another link), there are two factors contributing to the duration of the outage:
+</t>
+<ul>
+<li>
+<t>
+Time required for the host to receive new configuration information (RAs containing new PIOs).
+</t>
+</li>
+<li>
+<t>
+Time required for the host to deprecate the old configuration information.
+</t>
+</li>
+</ul>
+
+<section>
+<name>
+Receiving New Configuration Information from Routers
+</name>
+<t>
+There is always a delay between the network subnet change (renumebring event or link change event) and arrival of an RA. To reduce that delay in case of undetected link change, the network administrators SHOULD reduce MinRtrAdvInterval and MaxRtrAdvInterval (<xref target="RFC4861"/>) to ensure that RAs are sent often.
+In case of the link renumbering, the router SHOULD notify hosts by sending an RA with the new information. While Requirement L-13 of <xref target="RFC7084"/> requires that the IPv6 CE router MUST send an RA immidiately after the delegated prefix changes, that section does not explicitly requires the new prefix to be included. Also, that behaviour is only mandatory for CPE devices, while other routers (Enterprise-grade devices, for example) comply with Section 6.2.4 of <xref target="RFC4861"/> which says:
+</t>
+<t>
+The information contained in Router Advertisements may change through
+   actions of system management.  For instance, the lifetime of
+   advertised prefixes may change, new prefixes could be added, a router
+   could cease to be a router (i.e., switch from being a router to being
+   a host), etc.  In such cases, the router MAY transmit up to
+   MAX_INITIAL_RTR_ADVERTISEMENTS unsolicited advertisements, using the
+   same rules as when an interface becomes an advertising interface.
+</t>
+
+<t>
+To reduce the time required for hosts to detect renumbering event, it might be desirable to upgrade that "MAY" to "SHOULD".
+</t>
+
+</section>
+<section>
+<name>
+Hosts Deprecating the Outdated Configuration
+</name>
+<t>
+Without changes proposed in this document, a host might be using the outdated prefix for the duration of the PIO preferred lifetime. As per <xref target="RFC4861"/>, the default value for preferred lifetime is 604800 secs (7 days). The expired draft draft-ietf-6man-slaac-renum proposes to reduce that value to 14400 seconds (4 hours).
+</t>
+<t>
+The solution proposed in this document allows hosts which implement Rule 5.5 of the source address selection (<xref target="RFC6724"/>) to stop using the outdated prefix much faster. The time required for the host to detect that the old prefix shouldn't be used for initiating new session is the time required for Neighbor Unreachability Detection (NUD, <xref target="RFC4861"/>) to remove an unreachable entry for the old link-local address of the default router. The default value would be (without taking randomisation factors into account):
+ReachableTime milliseconds (to move from REACHABLE to STALE) + DELAY_FIRST_PROBE_TIME + MAX_UNICAST_SOLICIT*RetransTimer = 30 seconds  +  5 second + 3*1 = 38 seconds.
+</t>
+
+</section>
+</section>
+
 <section anchor="gulla">
 <name>Generating Subnet-Specific Link-Local Addresses for Router Interfaces</name>
 <ul>
@@ -286,6 +352,7 @@ It should be noted that the proposed mechanism assumes that the router does not 
       <!-- All drafts are required to have a security considerations section. See RFC 3552 for a guide. -->
       <name>Security Considerations</name>
 <t>
+To be added.
 </t>
     </section>
 
@@ -330,6 +397,7 @@ This document does not introduce any privacy considerations.
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.4862.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.5798.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.6059.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.7084.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8064.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.9096.xml"/>
 
