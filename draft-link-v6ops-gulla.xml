@@ -304,7 +304,7 @@ The router SHOULD stop responding to Neighbor Solicitation packets to the old li
 </ul>
 <t>
 Routers which act as DHCPv6-PD clients need to implement some algorithm to generate the interface ID based on the set of prefixes advertised on a given interface. 
-The exact algorithm is outside of scope of this document - it could be some form of hashing function which consumes a list of network prefixes and generates a 64-bits interface ID. For example, the router MAY use the algorithm defined in <xref target="RFC7217"/> and use the list of PIOs as Network_ID.</t>
+The router SHOULD use the algorithm defined in <xref target="RFC7217"/> and use the list of PIOs as Prefix.</t>
 
 <t>
 If the interface subnets are configured statically, the network administrator can configure link-local addresses statically as well. In some cases it might be possible to just utilize the global subnet prefix as an interface ID. For example, if the router has two interfaces configured with 2001:db8:1:1::/64 and 2001:db8:2:2::/64 subnets respectively, it is sufficient to configure fe80::2001:db8:1:1 and fe80::2001:db8:2:2 as the link-local addresses for those interfaces. If the first-hop redundancy is provided by VRRPv3, there is no need to configure the static link-local interface addresses but the virtual link-local address SHOULD be configured instead.
