@@ -15,16 +15,17 @@
 
 <rfc
   xmlns:xi="http://www.w3.org/2001/XInclude"
-  category="info"
-  docName="draft-link-v6ops-gulla-02"
+  category="std"
+  docName="draft-link-6man-gulla-00"
   ipr="trust200902"
   obsoletes=""
+  updates="4861,8028"
   submissionType="IETF"
   xml:lang="en"
   version="3">
   <front>
-<title abbrev="gulla">Using Subnet-Specific Link-Local Addresses to Improve SLAAC Robustness</title>
-    <seriesInfo name="Internet-Draft" value="draft-link-v6ops-gulla"/>
+<title abbrev="gulla">Using Prefix-Specific Link-Local Addresses to Improve SLAAC Robustness</title>
+    <seriesInfo name="Internet-Draft" value="draft-link-6man-gulla-00"/>
     <author fullname="Jen Linkova" initials="J" surname="Linkova">
       <organization>Google</organization>
       <address>
@@ -41,16 +42,19 @@
       </address>
     </author>
     <date year="2024"/>
-<area>Ops</area>
-    <workgroup>IPv6 operations</workgroup>
+<area>Internet</area>
+<workgroup>IPv6 Maintenance</workgroup>
     <keyword>ipv6</keyword>
     <keyword>slaac</keyword>
     <keyword>renumbering</keyword>
-
-
     <abstract>
  <t>
-This document suggests that a link-local address used by a router as a source address for Router Advertisement packets is calculated as a function of prefixes listed in the Prefix Information Option of the Router Advertisement. The proposed approach, combined with the Rule 5.5 of the Default Source Address Selection algorithm (RFC6724) and first-hop selection requirements for hosts (RFC 8028)  improves the robustness of the SLAAC by allowing the hosts to detect the IPv6 subnet changes much faster and select the correct source address.
+When an IPv6 prefix assigned to a link changes, hosts may not be explicitly notified about the change.
+Consequently, they may continue to use addresses which are not valid for that link.
+This leads to packet loss and service disruption.
+This document proposes a mechanism to mitigate this issue.
+Routers are advised to send Router Advertisements containing distinct Prefix Information Options (PIOs) from different link-local addresses.
+This, in conjunction with RFC6724 (Default Source Address Selection) Rule 5.5 and RFC8028 (first-hop selection requirements), enables hosts to detect prefix changes more rapidly and select the correct source address, thereby improving the robustness of SLAAC.
 
 </t>
 
