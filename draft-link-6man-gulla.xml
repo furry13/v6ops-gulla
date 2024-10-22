@@ -67,14 +67,26 @@ This, in conjunction with RFC6724 (Default Source Address Selection) Rule 5.5 an
     <section>
       <name>Introduction</name>
 <t>
-IPv6 Stateless Address AutoConfugration (SLAAC, <xref target="RFC4862"/> provides IPv6 hosts with a mechanism to configure their IPv6 stack based on the information (such as an IPv6 prefix and the default router address) provided by the on-link routers.
+IPv6 Stateless Address AutoConfugration (SLAAC, <xref target="RFC4862"/> provides IPv6 hosts with a mechanism to configure their IPv6 stack based on the information (such as an IPv6 prefix and the default router address) received from the on-link routers.
 If that information changes (e.g. a prefix assigned to the link is changed), the routers need to explicitly invalidate the outdated information (e.g. by sending a Router Advertisement packet which deprecates the old prefix).
 In the absence of an explicit signal the host would be using the outdated information until its lifetime expires.
-Multiple documents discuss the SLAAC renumbering problem and proposed various improvements to the host and router behaviour (see <xref target="RFC9096"/> and draft-ietf-6man-slaac-renum).
+If the host selects a source IPv6 address from a prefix which is not assigned to the link anymore, packets might be dropped either due to anti-spoofing policies on the routers, or just because the return traffic can not reach the host.
+This leads to degraded user experience.
 </t>
 <t>
-This document recommends that the link-local address the router sends the router advertisement from should depend on the network prefix(es) assigned to the router interface.
-As a result, Router Advertisements containing different sets of PIOs are sent from different link-local addresses.
+Multiple documents discuss the SLAAC so-called flash renumbering problem and proposed various improvements to the host and router behaviour (see <xref target="RFC9096"/> and <xref target="I-D.ietf-6man-slaac-renum"/>).
+</t>
+<t>
+The problem of selecting "a correct" source address is not unique for flash renumbering scenarions.
+In multihomed (more specifically, multi-prefix multi-router) network, where different prefixes are advertized by different routers, a host need to choose both a first-hop router and a source address for a given packet.
+Rule 5.5 of the default source address selection algorithm <xref target="RFC6724"/> instructs hosts to prefer a source address from a prefix, advertized by the chosen first-hop router. Additionally, <xref target="RFC8028"/> requires hosts to select default routers for each prefix it is assigned an address in. 
+</t>
+<t>
+If, when the link is renumebered, the old and new prefixes are seen as advertized by two different routers, the renumbering scenario becomes a specific corner case of a multihoming: the host has addresses in multiple prefixes, advertized by different routers, and needs to select a correct address (one from a prefix which is currently assigned to the link). 
+Therefore, the mechanisms (Rule 5.5 of the source address selection and ones proposed by <xref target="RFC8028"/>) can be used for both multihoming and flash renumering scenarios.
+</t>
+<t>
+To ensure that during the renumbering each prefix is seen as advertized by a different first-hop router, this document suggests that routers sent Router Advertisements with different Prefix Information Options (PIOs) from different link-local addresses.
 That allows the hosts to select the source address from the prefix advertized by the reachable next-hop and recover from a renumbering or network segment change events much faster.
 </t>
 
@@ -94,36 +106,38 @@ That allows the hosts to select the source address from the prefix advertized by
 <name>
 Terminology
 </name>
-<t>
-PIO: Prefix Information Option, <xref target="RFC4861"/>.
-</t>
-<t>
-RA: Router Advertisement, <xref target="RFC4861"/>.
-</t>
-<t>
-SLAAC: StateLess Address AutoConfiguration, <xref target="RFC4862"/>.
-</t>
-<t>
-</t>
+<t>DHCPv6-PD: DHCPv6 Prefix Delegation <xref target="RFC8415"/>; a mechanism to delegate IPv6 prefixes to clients.</t>
+<t>Flash renumbering: a network renumbering event, when an old prefix, used to address hosts, becomes invalid and is replaced by a new prefix (or just removed, without any replacement). Before the flash renumbering only the old prefix provides connectivity, and after the flash renumbering only the new one can be used. In other words, there is no period of time when addresses from both prefixes provide connectivity. Examples of flash renumbering include, but are not limited to a change of prefix delegated via DHCPv6-PD, or removal of one prefix from the router configuration and replacing it with another. See <xref target="RFC8978"/> for more detailed discussion of various flash-renumbering scenarios.</t>
+<t>LLA: Link-Local Address, Section 2.5.6 of <xref target="RFC4291"/>.</t>
+<t>PIO: Prefix Information Option, <xref target="RFC4861"/>.</t>
+<t>RA: Router Advertisement, <xref target="RFC4861"/>.</t>
+<t>SLAAC: IPv6 Stateless Address AutoConfugration, <xref target="RFC4862"/>.</t>
+<t>SLAAC host: a host which uses SLAAC to configure addresses. </t>
+<t>SLAAC Router: a router which advertizes at least one prefix in a PIO with the A flag set to 1, so that prefix can be used for SLAAC.</t>
 </section>
 
     <section anchor="usecases">
 <name>Subnet Change Scenarios</name>
 <t>
-There are multiple scenarios when an IPv6 subnet assigned to the link can change without any explicit signals received by hosts.
+There are multiple scenarios when an IPv6 subnet assigned to the link the host is connected to can change without any explicit signals received by hosts.
 When it happens, the hosts can end up with outdated IPv6 address configuration, which leads to broken connectivity and degraded user experience.
-Examples include but are not limited to:
+In particular there are two common types of scenarios:
 </t>
 <ul>
 <li>
 <t>
-A prefix delegated to a CPE router changes, and the router does not send RAs to the connected hosts, deprecating the old prefix.
+Flash renumbering of the link the host is connected to.
+The most common example is a CPE router receiving a new prefix via DHCPv6-PD, while not deprecating the old prefix.
 The hosts would be using addresses from both old and new prefixes until the prefix lifetime expires.
+<xref target="RFC8978"/> discusses flash renumbering scenarios in details.
 </t>
 </li>
 <li>
 <t>
-A host is connected to a wired port, and a VLAN (and the corresponding IPv6 subnet) changed. This often happens if the VLAN is configured as a result of 802.1x or MAC-based authentication, so the VLAN is provided by RADIUS. Some OSes do not correctly reset IPv6 stack when the wired interface 802.1x state changes from ‘unauthenticated’ to ‘authenticated’ (or vice versa). 
+While there are no changes in prefixes assigned to links, a host moves from one link to another without detecting the disconnect.
+For example, a host can be connected to a wired port, and a VLAN (and the corresponding IPv6 subnet) changed.
+This often happens if the VLAN is configured as a result of 802.1x or MAC-based authentication, so the VLAN is provided by RADIUS. Some OSes do not correctly reset IPv6 stack when the wired interface 802.1x state changes from ‘unauthenticated’ to ‘authenticated’ (or vice versa). 
+Another example os a host roaming between two SSIDs with the same name but different IPv6 subnets.
 </t>
 </li>
 </ul>
@@ -172,34 +186,71 @@ It allows the multihomed host to select the source address correctly: when two r
 
 <t>
 In case of renumbering if both old and new prefixes are advertized by the same router (received from a router with the same link-local address), then Rule 5.5 doesn't help selecting the correct (working) source address.
-However if the subnet change also leads to the default router address change, then a host implementing Rule 5.5 could recover from the renumbering quickly:
+However, if the prefix change also leads to the default router address change, then a host implementing Rule 5.5 could recover from the renumbering quickly, i.e.:
 </t>
+
 <ul>
 <li>
 <t>
-The host is connected to a network A, receives an RA from the router (link-local address LLA_A) with a PIO  containing pref_a, forms IPv6 addresses from that prefix using SLAAC.
+The host receives a Router Advertisement (RA, <xref target="RFC4861"/>) from the router (link-local address LLA_A) with a PIO  containing pref_a, forms IPv6 addresses from that prefix using SLAAC.
 </t>
 </li>
+
 <li>
 <t>
-The host attachment changes from network A to network B or an IPv6 prefix configured on the network changes from pref_a to pref_b.
-The host doesn’t detect the network change and doesn’t clear the IPv6 stack.
+An IPv6 prefix configured on the link changes from pref_a to pref_b.
+The host does not receive any explicit signal about the prefix change and does not clear stale IPv6 configuration from its interface.
 </t>
 </li>
+
 <li>
 <t>
-The host receives an RA from the router (link-local address LLA_B) with a new PIO for  pref_b and forms new addresses from that prefix. 
+The host receives an RA from the router (link-local address LLA_B) with a new PIO for  pref_b and forms new addresses from that prefix.
 </t>
 </li>
+
 <li>
 <t>
 Link-local address LLA_A is not reachable anymore, as the host changes the network attachment point.
-Neighbor Unreachability Detection (<xref target="RFC4861"/>) detects it and removes LLA_A from the list of default routers.
+Neighbor Unreachability Detection (<xref target="RFC4861"/>) detects that the next-hop is no longer reachable, and removes LLA_A from the list of default routers.
 </t>
 </li>
 <li>
 <t>
 The host is using LLA_B as a next-hop for outgoing traffic, so addresses from the pref_b are selected, and addresses from pref_a are not used.
+</t>
+</li>
+
+</ul>
+
+<t>
+It should be noted that <xref target="RFC6724"/> does not require all implementations to support Rule 5.5, limiting the support to systems which track which router advertized which prefix. However <xref target="I-D.ietf-6man-rfc6724-update"/> elevates Rule 5.5 support to MUST for all systems.
+</t>
+
+<t>
+As per <xref target="RFC8028"/>, "A host SHOULD select default routers for each prefix it is assigned an address in.
+Routers that have advertised the prefix in their Router Advertisement message SHOULD be preferred over routers that do not advertise the prefix."
+If the host complies with <xref target="RFC8028"/>, then the proposed mechanism would work even better, and would provide fast recovery from a renumbering event:
+</t>
+<ul>
+<li>
+<t>
+The host selects a default router with link-local address LLA_A for pref_a.
+</t>
+</li>
+<li>
+<t>
+The prefix on the link changes from pref_a to pref_b.
+</t>
+</li>
+<li>
+<t>
+When the host receives an RA from LLA_B, containing a PIO for pref_b, the host selects another default gateway, LLA_B. 
+</t>
+</li>
+<li>
+<t>
+Neighbor Unreachability Detection detects that LLA_A is not reachable, and removes it from the neighbor cache table, so the host can not use it as a default gateway anymore. The host switches to using LLA_B as a default gateway and, in accordance with Rule 5.5, starts using addresses from pref_b.
 </t>
 </li>
 </ul>
@@ -248,35 +299,13 @@ Time required for the host to deprecate the old configuration information.
 </li>
 </ul>
 
-<section>
-<name>
-Receiving New Configuration Information from Routers
-</name>
-<t>
-There is always a delay between the network subnet change (renumebring event or link change event) and arrival of an RA. To reduce that delay in case of undetected link change, the network administrators SHOULD reduce MinRtrAdvInterval and MaxRtrAdvInterval (<xref target="RFC4861"/>) to ensure that RAs are sent often.
-In case of the link renumbering, the router SHOULD notify hosts by sending an RA with the new information. While Requirement L-13 of <xref target="RFC7084"/> requires that the IPv6 CE router MUST send an RA immidiately after the delegated prefix changes, that section does not explicitly requires the new prefix to be included. Also, that behaviour is only mandatory for CPE devices, while other routers (Enterprise-grade devices, for example) comply with Section 6.2.4 of <xref target="RFC4861"/> which says:
-</t>
-<t>
-The information contained in Router Advertisements may change through
-   actions of system management.  For instance, the lifetime of
-   advertised prefixes may change, new prefixes could be added, a router
-   could cease to be a router (i.e., switch from being a router to being
-   a host), etc.  In such cases, the router MAY transmit up to
-   MAX_INITIAL_RTR_ADVERTISEMENTS unsolicited advertisements, using the
-   same rules as when an interface becomes an advertising interface.
-</t>
-
-<t>
-To reduce the time required for hosts to detect renumbering event, it might be desirable to upgrade that "MAY" to "SHOULD".
-</t>
-
 </section>
 <section>
 <name>
 Hosts Deprecating the Outdated Configuration
 </name>
 <t>
-Without changes proposed in this document, a host might be using the outdated prefix for the duration of the PIO preferred lifetime. As per <xref target="RFC4861"/>, the default value for preferred lifetime is 604800 secs (7 days). The expired draft draft-ietf-6man-slaac-renum proposes to reduce that value to 14400 seconds (4 hours).
+Without changes proposed in this document, a host might be using the outdated prefix for the duration of the PIO preferred lifetime. As per <xref target="RFC4861"/>, the default value for preferred lifetime is 604800 secs (7 days). While <xref target="I-D.ietf-6man-slaac-renum"/> proposes to reduce that value to 14400 seconds (4 hours), it still much longer than any user would accept.
 </t>
 <t>
 The solution proposed in this document allows hosts which implement Rule 5.5 of the source address selection (<xref target="RFC6724"/>) to stop using the outdated prefix much faster. The time required for the host to detect that the old prefix shouldn't be used for initiating new session is the time required for Neighbor Unreachability Detection (NUD, <xref target="RFC4861"/>) to remove an unreachable entry for the old link-local address of the default router. The default value would be (without taking randomisation factors into account):
@@ -284,55 +313,76 @@ ReachableTime milliseconds (to move from REACHABLE to STALE) + DELAY_FIRST_PROBE
 </t>
 
 </section>
-</section>
 
 <section anchor="gulla">
 <name>Generating Subnet-Specific Link-Local Addresses for Router Interfaces</name>
+<t>
+It is highly desirable to ensure that renumbering or any changes to the set of prefixes advertized in PIOs detected by hosts in timely manner. Therefore routers which support multiple link-local addresses per interface SHOULD support the following functionality:
+</t>
 <ul>
 <li>
-<t>
-The router SHOULD send router advertisement packets from a dedicated link-local address.
+<t>Generating (using  <xref target="RFC7217"/> algorithm but with Prefix set to the prefix in question) or allowing the administrator to configure a dedicated link-local address for each prefix in AdvPrefixList (<xref target="RFC4861"/>);</t>
+</li>
+<li>
+<t>Sending a PIO for each prefix in a separate RA, using that dedicated link-local address as a source. When populating fields in each RA as per Section 6.2.3 of <xref target="RFC4861"/>, AdvPrefixList is treated as containing one specific prefix only.
+The router SHOULD comply with <xref target="RFC4861"/> requirements when sending each of those RAs individually. 
+In other words, it SHOULD behave as a number of independent virtual routers, each having its own link-local address and sending RAs with just one PIO.
 </t>
 </li>
 <li>
 <t>
-That dedicated link-local address SHOULD change if the set of prefixes advertized in the Router Advertisement changes. 
-In other words, when the set of prefixes advertized on a given interface changes, the router SHOULD generate a new link-local address and use that address as a source address for Router Advertisements. As soon as a new link-local address is generated, the router SHOULD transmit Router Advertisements as specified in Section 6.2.4 of <xref target="RFC4861"/>.
-</t>
-</li>
-<li>
-<t>
-The router SHOULD stop responding to Neighbor Solicitation packets to the old link-local address. This is required for Neighbor Unreachability Detection mechanism on hosts to mark the old address as unreachable and make the hosts to use the new address as a default router.
+Removing the prefix-specific link-local address from the interface when the corresponding prefix is no longer advertized in a PIO sent from that interface.
+The router SHOULD also follow recommendations from Section 6.2.8 of <xref target="RFC4861"/> to inform hosts of this change.
 </t>
 </li>
 </ul>
+
 <t>
-Routers which act as DHCPv6-PD clients need to implement some algorithm to generate the interface ID based on the set of prefixes advertised on a given interface. 
-The router SHOULD use the algorithm defined in <xref target="RFC7217"/> and use the list of PIOs as Prefix.</t>
+Prefix-specific link-local addresses functionality SHOULD be configurable.
+Routers supporting prefix-specific link-local addresses SHOULD enable it on an interface susceptible to flash renumbering, e.g., if AdvPrefixList contains prefixes obtained dynamically from DHCPv6-PD.
+In all other cases, prefix-specific link-local addresses SHOULD be disabled by default and MAY be enabled by the administrator.
+</t>
+
+<t>
+As discussed in Section 6.2.8 of <xref target="RFC4861"/>, using multiple link-local address for the same router on the same link may prevent hosts from processing ICMPv6 redirects sent by the router. Therefore, if a router has prefix-specific link-local addresses enabled on its interface, the router MUST select the correct source link-local address when sending ICMPv6 redirects on that interface. In particular, if the source address of the invoking packet belongs to a prefix advertized in a PIO on that interface, the router MUST use the link-local address specific to this prefix as a source address for the ICMPv6 redirects.
+</t>
+
+<t>
+This document also modifies Section 6.2.8 of <xref target="RFC4861"/>:
+</t>
+<t>
+===
+</t>
+<t>OLD TEXT:</t>
+<t>
+===
+</t>
+<t>
+Using the link-local address to uniquely identify routers on the link has the benefit that the address a router is known by should not change when a site renumbers.
+</t>
+<t>
+===
+</t>
+<t>NEW TEXT:</t>
+<t>
+===
+</t>
+<t>
+Using the link-local address to uniquely identify routers on the link has the benefit that the address a router is known by should not change when a site renumbers and the renumbering event is explicitly signalled and properly propagated to all hosts.
+However, in case of flash renumbering without explicit signalling the router SHOULD be able change the link-local address of an interface following renumbering events, to help hosts detect prefix changes and update their configuration accordingly.
+</t>
+<t>
+===
+</t>
+
+
+
+
 
 <t>
 If the interface subnets are configured statically, the network administrator can configure link-local addresses statically as well. In some cases it might be possible to just utilize the global subnet prefix as an interface ID. For example, if the router has two interfaces configured with 2001:db8:1:1::/64 and 2001:db8:2:2::/64 subnets respectively, it is sufficient to configure fe80::2001:db8:1:1 and fe80::2001:db8:2:2 as the link-local addresses for those interfaces. If the first-hop redundancy is provided by VRRPv3, there is no need to configure the static link-local interface addresses but the virtual link-local address SHOULD be configured instead.
 </t>
 
-<t>
-Discussion: if a given router's interface has multiple prefixes configured, it's possible than only one prefix changes. For example:
-</t>
-<ul>
-<li>
-<t>
-An interface has both GUA and ULA prefixes configured, and the global prefix delegated via DHCPv6-PD changes, while ULA stays the same.
-</t>
-</li>
-<li>
-<t>
-In a multihomed environment, an interface migth have two prefixes delegated by two upstream networks. Those prefixes can change independently.
-</t>
-</li>
-</ul>
-
-<t>
-If all PIOs are advertised in a single RA, and the link-local address used as an RA source, is generated as described in this document, changing just one prefix would impact traffic sent from all addresses (as the previous default gateway becomes unreachable). Therefore it might be desirable for a router to send multiple RAs - one per PIO, and use a dedicated PIO-specific source address for each of those RAs. In that case, if the host complies with <xref target="RFC8028"/> and selects default routers for each prefix it is assigned an address in, then only traffic from source addresses in the renumbered prefix is impacted (as only the default gateway for that prefix becomes unreachable and needs to be reselected). On the other hand such proposal would lead to increased numbers of RAs being sent, which might negatively impact hosts battery life. It should be noted that an expired draft draft-ietf-6man-slaac-renum recommends against such behaviour and requires all PIOs to be advertized in a single RA.
-</t>
 
 <section anchor="stable">
 <name>
@@ -341,13 +391,39 @@ Subnet-Specific and Stable Link-Local Addresses
 <t>
 In many cases it might be beneficial for a router to have a stable link-local address (e.g. if that address is advertized as a DNS server, or for management purposes.
 Router MAY generate subnet-specific link-local addresses in addition to a stable link-local address.
-Alternatively, if the router is not capable of supporting multiple link-local addresses, it MAY generate a new stable link-local address every time the set of prefixes on the interface changes.
 </t>
 
 <t>
 It should be noted that the proposed mechanism assumes that the router does not use the modified EUI-64 format for generating interface ID. As per Section 3 of <xref target="RFC8064"/>, nodes SHOULD NOT use the modified EUI-64 format, and SHOULD use the algorithm defined in <xref target="RFC7217"/> instead. 
 </t>
 </section>
+</section>
+
+<section>
+<name>RFC8028 and Default Router Selection</name>
+<t>
+<xref target="RFC8028"/> requires that "a host SHOULD select default routers for each prefix it is assigned an address in" and that "Routers that have advertised the prefix in their Router Advertisement message SHOULD be preferred over routers that do not advertise the prefix, regardless of Default Router Preference. ".
+
+However it should be noted that as per Section 6.3.6 of <xref target="RFC4861"/>, the host can still select default routers even if the router is not reachable (its Neighbor Cache entry is INCOMPLETE).
+Selecting such router would be undersirable, as it would prevent eliminating unreachable nexthop and defeating the whole purpose of per-prefix link-local addresses.
+Therefore this document updates <xref target="RFC8028"/>
+</t>
+<t>
+OLD TEXT:
+</t>
+<t>=====</t>
+<t>
+
+Routers that have advertised the prefix in their Router Advertisement message SHOULD be preferred over routers that do not advertise the prefix, regardless of Default Router Preference. 
+</t>
+<t>=====</t>
+<t>NEW TEXT</t>
+<t>=====</t>
+<t>
+Routers that that are reachable or probably reachable (i.e., in any state other than INCOMPLETE) and have advertised the prefix in their Router Advertisement message SHOULD be preferred over routers that do not advertise the prefix, regardless of Default Router Preference. 
+</t>
+<t>=====</t>
+
 
 </section>
 
@@ -383,6 +459,7 @@ This document does not introduce any privacy considerations.
         <name>Normative References</name>
         
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.2119.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.4291.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.4861.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.6724.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.6877.xml"/>
@@ -390,8 +467,12 @@ This document does not introduce any privacy considerations.
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.7217.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8028.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8174.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8415.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8781.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8925.xml"/>
+        <xi:include href="https://bib.ietf.org/public/rfc/bibxml3/reference.I-D.ietf-6man-slaac-renum.xml"/>
+        <xi:include href="https://bib.ietf.org/public/rfc/bibxml3/reference.I-D.ietf-6man-rfc6724-update.xml"/>
+
         <!-- The recommended and simplest way to include a well known reference -->
         
       </references>
@@ -403,6 +484,7 @@ This document does not introduce any privacy considerations.
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.6059.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.7084.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8064.xml"/>
+        <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.8978.xml"/>
         <xi:include href="https://www.rfc-editor.org/refs/bibxml/reference.RFC.9096.xml"/>
 
       </references>
