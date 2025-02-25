@@ -135,8 +135,10 @@ The hosts would be using addresses from both old and new prefixes until the pref
 <li>
 <t>
 While there are no changes in prefixes assigned to links, a host moves from one link to another without detecting the disconnect.
-For example, a host can be connected to a wired port, and a VLAN (and the corresponding IPv6 subnet) changed.
-This often happens if the VLAN is configured as a result of 802.1x or MAC-based authentication, so the VLAN is provided by RADIUS. Some OSes do not correctly reset IPv6 stack when the wired interface 802.1x state changes from ‘unauthenticated’ to ‘authenticated’ (or vice versa). 
+For example, a host can be connected to a wired port, and a VLAN (and the corresponding IPv6 subnet) changed w/o the host detecting the change.
+This often happens when a switchport is reconfigured to modify the assigned VLAN (e.g. manually by the administrator, or by some automated provisioning system), the host does not reset the interface configuration.
+Similarly, if the VLAN is configured as a result of 802.1x or MAC-based authentication and the VLAN is provided by RADIUS, 802.1x reauthentication event may lead to the vlan assignment changes. As some 802.1x supplicants do not always reset IPv6 stack when the wired interface 802.1x state changes from ‘unauthenticated’ to ‘authenticated’ (or vice versa), the host might keep IPv6 configuration from the "old" vlan.
+
 Another example os a host roaming between two SSIDs with the same name but different IPv6 subnets.
 </t>
 </li>
@@ -317,30 +319,32 @@ ReachableTime milliseconds (to move from REACHABLE to STALE) + DELAY_FIRST_PROBE
 <section anchor="gulla">
 <name>Generating Subnet-Specific Link-Local Addresses for Router Interfaces</name>
 <t>
-It is highly desirable to ensure that renumbering or any changes to the set of prefixes advertized in PIOs detected by hosts in timely manner. Therefore routers which support multiple link-local addresses per interface SHOULD support the following functionality:
+Subnet-specific link-local addresses, as described above, allow hosts to quickly identify renumbering or changes to the prefixes advertised in PIOs, improving SLAAC robustness to renumbering.
+Routers supporting subnet-specific link-local addresses functionality SHOULD:
 </t>
 <ul>
 <li>
-<t>Generating (using  <xref target="RFC7217"/> algorithm but with Prefix set to the prefix in question) or allowing the administrator to configure a dedicated link-local address for each prefix in AdvPrefixList (<xref target="RFC4861"/>);</t>
+<t>
+Support multiple link-local addresses per interface.
+</t>
 </li>
 <li>
-<t>Sending a PIO for each prefix in a separate RA, using that dedicated link-local address as a source. When populating fields in each RA as per Section 6.2.3 of <xref target="RFC4861"/>, AdvPrefixList is treated as containing one specific prefix only.
-The router SHOULD comply with <xref target="RFC4861"/> requirements when sending each of those RAs individually. 
-In other words, it SHOULD behave as a number of independent virtual routers, each having its own link-local address and sending RAs with just one PIO.
+<t>Generate (using  <xref target="RFC7217"/> algorithm but with Prefix set to the prefix in question) or allowing the administrator to configure a dedicated link-local address for each prefix in AdvPrefixList (<xref target="RFC4861"/>);</t>
+</li>
+<li>
+<t>Send a PIO for each prefix in a separate RA, using that dedicated link-local address as a source. When populating fields in each RA as per Section 6.2.3 of <xref target="RFC4861"/>, AdvPrefixList is treated as containing one specific prefix only. When the AdvPrefixList contains multiple prefixes, so multiple RAs need to be sent, the router SHOULD minimize the time interval between them. Doing so reduces the energy consumption of battery-powered devices that must awaken to receive those RAs. Ideally, all RAs shall be sent together, as a bundle, so MaxRtrAdvInterval and MinRtrAdvInterval are applied to the whole bundle.
 </t>
 </li>
 <li>
 <t>
-Removing the prefix-specific link-local address from the interface when the corresponding prefix is no longer advertized in a PIO sent from that interface.
+Remove the prefix-specific link-local address from the interface when the corresponding prefix is no longer advertized in a PIO sent from that interface.
 The router SHOULD also follow recommendations from Section 6.2.8 of <xref target="RFC4861"/> to inform hosts of this change.
 </t>
 </li>
 </ul>
 
 <t>
-Prefix-specific link-local addresses functionality SHOULD be configurable.
-Routers supporting prefix-specific link-local addresses SHOULD enable it on an interface susceptible to flash renumbering, e.g., if AdvPrefixList contains prefixes obtained dynamically from DHCPv6-PD.
-In all other cases, prefix-specific link-local addresses SHOULD be disabled by default and MAY be enabled by the administrator.
+Prefix-specific link-local addresses functionality SHOULD be configurable and SHOULD be enabled by default only on interfaces susceptible to flash renumbering, e.g., if AdvPrefixList contains prefixes obtained dynamically from DHCPv6-PD. In all other cases, prefix-specific link-local addresses SHOULD be disabled by default and MAY be enabled by the administrator.
 </t>
 
 <t>
