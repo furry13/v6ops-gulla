@@ -16,7 +16,7 @@
 <rfc
   xmlns:xi="http://www.w3.org/2001/XInclude"
   category="std"
-  docName="draft-link-6man-gulla-00"
+  docName="draft-link-6man-gulla-01"
   ipr="trust200902"
   obsoletes=""
   updates="4861,8028"
@@ -25,7 +25,7 @@
   version="3">
   <front>
 <title abbrev="gulla">Using Prefix-Specific Link-Local Addresses to Improve SLAAC Robustness</title>
-    <seriesInfo name="Internet-Draft" value="draft-link-6man-gulla-00"/>
+    <seriesInfo name="Internet-Draft" value="draft-link-6man-gulla-01"/>
     <author fullname="Jen Linkova" initials="J" surname="Linkova">
       <organization>Google</organization>
       <address>
@@ -50,7 +50,8 @@
     <abstract>
  <t>
 When an IPv6 prefix assigned to a link changes, hosts may not be explicitly notified about the change.
-Consequently, they may continue to use addresses which are not valid for that link.
+Similarly, in some scenario a link attachement for the host may change without the host detecting it.
+In both cases the host does not receive any signals to trigger the network stack configuration refresh, so it may continue to use "old" addresses which are not valid for the link.
 This leads to packet loss and service disruption.
 This document proposes a mechanism to mitigate this issue.
 Routers are advised to send Router Advertisements containing distinct Prefix Information Options (PIOs) from different link-local addresses.
