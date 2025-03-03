@@ -403,10 +403,10 @@ The solution requires the router to support multiple link-local addresses per in
 </ul>
 
 <t>
-Some deployments (e.g. residential networks where CPEs obtain prefixes vua DHCPv6-PD, or enterprise networks where hosts can move between VLANs) benefit from the proposed solution more than others.
+Some deployments (e.g. residential networks where CPEs obtain prefixes via DHCPv6-PD, or enterprise networks where hosts can move between VLANs) benefit from the proposed solution more than others.
 Therefore the mechanism described in this document is considered optional and is not required to be supported by all routers.
-If the router supports prefix-specific link-local addresses, that functionality SHOULD be configurable and SHOULD be enabled by default only on interfaces susceptible to flash renumbering, e.g., if AdvPrefixList contains prefixes obtained dynamically from DHCPv6-PD.
-In all other cases, prefix-specific link-local addresses SHOULD be disabled by default and MAY be enabled by the administrator.
+If the router supports prefix-specific link-local addresses, that functionality SHOULD be configurable and MAY be enabled by default only on interfaces susceptible to flash renumbering, e.g., if AdvPrefixList contains prefixes obtained dynamically from DHCPv6-PD.
+In all other cases, prefix-specific link-local addresses MUST be disabled by default and MAY be enabled by the administrator.
 </t>
 
 
